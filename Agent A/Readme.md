@@ -1,4 +1,4 @@
-#  SOTA ICU Mortality Optimization (Amsterdam Cohort)
+# ICU Mortality Optimization (Amsterdam Cohort)
 
 [![Project Status: Active](https://img.shields.io/badge/Status-Active-brightgreen)](https://github.com/AjmalMIITM/email-verification)
 [![Research: SOTA](https://img.shields.io/badge/Research-SOTA%20Clinical-blue)](https://pubmed.ncbi.nlm.nih.gov/)
@@ -29,7 +29,7 @@ This repository implements a **State-of-the-Art (SOTA)** Deep Phenotyping pipeli
 - **Objective:** Preserve multi-dimensional physiological variance.
 - **Methods:** Multiple Imputation by Chained Equations (MICE) followed by UMAP (8 components for discovery).
 - **Visual Evidence:** Manifold verified biological continuity without imputation artifacts.
-![UMAP Latent Space](file:///C:/Users/24f20/Downloads/MIMIC%20IV%20V3.1%20For%20Datathon/Amsterdam_SOTA_Optimization/results/umap_plots/umap_representation_learning.png)
+![UMAP Latent Space](https://github.com/AjmalMIITM/Respiratory-Orchestrator/blob/main/Agent%20A/Results/Plots/umap_representation_learning.png)
 
 ###  Phase 3: HDBSCAN Phenotype Discovery
 - **Objective:** Isolate latent clinical sub-states.
@@ -46,7 +46,7 @@ This repository implements a **State-of-the-Art (SOTA)** Deep Phenotyping pipeli
 - **Objective:** Break the discrimination ceiling.
 - **Logic:** Weighted Soft Voting combining **Decision Trees** (LGBM/XGB) with **Geometric Experts** (Scaled/Calibrated LinearSVC).
 - **Calibration:** Achieved high clinical utility across risk thresholds via Isotonic scaling.
-![Calibration Audit](https://github.com/AjmalMIITM/Respiratory-Orchestrator/blob/main/Agent%20A/Results/Plots/phenotype_risk_calibration.png)
+![Calibration Audit](https://github.com/AjmalMIITM/Respiratory-Orchestrator/blob/main/Agent%20A/Results/Plots/hdbscan_phenotypes.png)
 
 ---
 
@@ -69,11 +69,45 @@ Amsterdam_SOTA_Optimization/
 
 ---
 
-##  Getting Started
+##  Replication Workflow (From Scratch)
 
-1. **Setup:** `pip install -r requirements.txt`
-2. **Run Full Pipeline:** `python scripts/run_ensemble_safe.py`
-3. **Verify Metrics:** Check `results/ensemble_results/ensemble_metrics.csv`
+To fully replicate the SOTA results, execute the pipeline phases in this exact order:
+
+1. **Environment Setup**
+   ```bash
+   pip install -r requirements.txt
+   ```
+   *Note: Ensure raw data is correctly positioned or update `src/01_EDA.py` to point to your dataset.*
+
+2. **Phase 1: Exploratory Data Analysis**
+   ```bash
+   python scripts/run_eda_safe.py
+   ```
+   *Outcome: Validates data health and generates `artifacts/X_processed_final.csv`.*
+
+3. **Phase 2: Representation Learning (UMAP)**
+   ```bash
+   python scripts/run_umap_safe.py
+   ```
+   *Outcome: Generates 8D latent embeddings in `artifacts/umap_embeddings.npy`.*
+
+4. **Phase 3: Phenotype Discovery (HDBSCAN)**
+   ```bash
+   python scripts/run_hdbscan_safe.py
+   ```
+   *Outcome: Identifies 31 phenotypes and assigns soft probabilities.*
+
+5. **Phase 4: Modeling Championship**
+   ```bash
+   python scripts/run_championship_safe.py
+   ```
+   *Outcome: Benchmarks 20 models; identifies LightGBM as the single-model winner.*
+
+6. **Phase 5: Ensemble Stacking (Final SOTA)**
+   ```bash
+   python scripts/run_ensemble_safe.py
+   ```
+   *Outcome: Generates final ensemble predictions and calibration audit.*
 
 ---
 
@@ -83,3 +117,6 @@ Amsterdam_SOTA_Optimization/
 - **Source P21 [Thoral et al.]:** AmsterdamUMCdb SOTA Benchmarking (0.78 AUC).
 
 ---
+
+
+
