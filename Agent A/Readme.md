@@ -72,14 +72,20 @@ Amsterdam_SOTA_Optimization/
 Want to see the model in action without running the full pipeline? Use our pre-packaged **Inference Engine**:
 
 1. **Navigate to the Demo Folder:**
+   
+   a)
    ```bash
-   cd demo
+   git clone https://github.com/AjmalMIITM/Respiratory-Orchestrator
    ```
-2. **Run the Prediction Script:**
+   b)
+   ```bash
+   cd "Agent A\demo"
+   ```
+3. **Run the Prediction Script:**
    ```bash
    python run_demo.py
    ```
-3. **What Happens?**
+4. **What Happens?**
    - The script loads the serialized SOTA "Brain" (`demo/models/sota_ensemble_pkg.pkl`).
    - It processes the sample patients in `demo/data/dummy.csv`.
    - It outputs a **Risk Score** and **Clinical Persona** (e.g., "Respiratory Failure").
