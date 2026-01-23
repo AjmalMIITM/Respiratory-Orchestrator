@@ -35,7 +35,7 @@ This repository implements a **State-of-the-Art (SOTA)** Deep Phenotyping pipeli
 - **Objective:** Isolate latent clinical sub-states.
 - **Results:** Discovered **31 distinct phenotypes**. Identified Phenotype 12 (High Respiratory/Metabolic Failure) with **20% mortality**.
 - **Methods:** Soft-membership probabilities generated for 100% of the cohort.
-![Phenotype Risk](file:///C:/Users/24f20/Downloads/MIMIC%20IV%20V3.1%20For%20Datathon/Amsterdam_SOTA_Optimization/results/cluster_plots/hdbscan_phenotypes.png)
+![Phenotype Risk](https://github.com/AjmalMIITM/Respiratory-Orchestrator/blob/main/Agent%20A/Results/Plots/hdbscan_phenotypes.png)
 
 ###  Phase 4: Championship Ablation Matrix
 - **Objective:** Quantify the "Value of Information" of phenotyping.
