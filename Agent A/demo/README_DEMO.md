@@ -14,7 +14,7 @@ cd demo
 ## 3. The Action
 Run the prediction engine on our 2 dummy patients (Respiratory Failure vs. Healthy):
 ```bash
-python run_inference.py
+python run_demo.py
 ```
 
 ## 4. The Result
@@ -23,3 +23,4 @@ You will see:
 - **Patient 1:** "Standard Recovery (Low Risk)" -> **STABLE**
 
 *Note: The `sota_ensemble_pkg.pkl` contains the entire heavy lifting (Imputation, UMAP, Ensemble).*
+
