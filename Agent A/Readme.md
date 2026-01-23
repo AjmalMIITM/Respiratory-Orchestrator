@@ -46,7 +46,7 @@ This repository implements a **State-of-the-Art (SOTA)** Deep Phenotyping pipeli
 - **Objective:** Break the discrimination ceiling.
 - **Logic:** Weighted Soft Voting combining **Decision Trees** (LGBM/XGB) with **Geometric Experts** (Scaled/Calibrated LinearSVC).
 - **Calibration:** Achieved high clinical utility across risk thresholds via Isotonic scaling.
-![Calibration Audit](file:///C:/Users/24f20/Downloads/MIMIC%20IV%20V3.1%20For%20Datathon/Amsterdam_SOTA_Optimization/results/ensemble_results/phenotype_risk_calibration.png)
+![Calibration Audit](https://github.com/AjmalMIITM/Respiratory-Orchestrator/blob/main/Agent%20A/Results/Plots/phenotype_risk_calibration.png)
 
 ---
 
