@@ -72,23 +72,14 @@ def predict_demo_patients():
         
     df_phenos = pd.DataFrame(soft_probs)
     
-    # FIX: Ensure all columns from training (SVC) are present
-    # The SVC model expects specific column names. We need to find what they are.
-    # Ideally pkg would store 'svc_feature_names', but we can infer or catch.
-    # Better strategy: Get the list of 'prob_pheno_' columns the model expects.
-    # Hack: We know the model expects prob_pheno_-1 if HDBSCAN had noise.
-    # We will add missing columns with 0.0
-    
-    # Let's inspect the SVC pipeline steps to find feature names if possible,
-    # or just be robust.
-    # Robust fix: The SVC model was trained on X_soft which has: REFINED_11 + prob_cols
-    # We can try to get feature names from the scaler in the pipeline if available, or just
-    # ensure we have prob_pheno_-1 if it's missing.
-    
-    # We will simply check for prob_pheno_-1 and add it if missing
-    if 'prob_pheno_-1' not in df_phenos.columns:
-        df_phenos['prob_pheno_-1'] = 0.0
-        
+    # FIX: Robustly remove noise column (-1) which wasn't in training
+    # Handle potentially different string/int formatting
+    cols_to_drop = [c for c in df_phenos.columns if str(c).endswith('_-1') or str(c).endswith('_-1.0')]
+    if cols_to_drop:
+        # print(f"[DEBUG] Dropping noise columns: {cols_to_drop}")
+        df_phenos = df_phenos.drop(columns=cols_to_drop)
+
+    # Ensure columns are sorted to match training order
     df_phenos = df_phenos.reindex(sorted(df_phenos.columns), axis=1) 
     
     # D. Prepare Model Inputs
@@ -97,6 +88,21 @@ def predict_demo_patients():
     
     X_soft = pd.concat([pd.DataFrame(X_imputed, columns=pkg['features']), df_phenos], axis=1)
     
+    # FINAL SAFEGUARD: Align X_soft with SVC model features if possible
+    # This prevents the 'unseen features' error
+    try:
+        # Check standard sklearn attribute
+        if hasattr(pkg['svc_model'], 'feature_names_in_'):
+             expected_cols = pkg['svc_model'].feature_names_in_
+             X_soft = X_soft.reindex(columns=expected_cols, fill_value=0.0)
+        # Check pipeline final estimator attribute (common in older sklearn)
+        elif hasattr(pkg['svc_model'], 'steps') and hasattr(pkg['svc_model'].steps[-1][1], 'feature_names_in_'):
+             expected_cols = pkg['svc_model'].steps[-1][1].feature_names_in_
+             X_soft = X_soft.reindex(columns=expected_cols, fill_value=0.0)
+    except Exception as e:
+        # Fallback if attribute not found 
+        pass
+
     # 4. Predict
     print("\n[PREDICTING] Running Ensemble Vote...")
     p1 = pkg['lgbm_model'].predict_proba(X_hard)[:, 1]
