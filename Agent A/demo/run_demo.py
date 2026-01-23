@@ -71,6 +71,24 @@ def predict_demo_patients():
         soft_probs.append(p_dict)
         
     df_phenos = pd.DataFrame(soft_probs)
+    
+    # FIX: Ensure all columns from training (SVC) are present
+    # The SVC model expects specific column names. We need to find what they are.
+    # Ideally pkg would store 'svc_feature_names', but we can infer or catch.
+    # Better strategy: Get the list of 'prob_pheno_' columns the model expects.
+    # Hack: We know the model expects prob_pheno_-1 if HDBSCAN had noise.
+    # We will add missing columns with 0.0
+    
+    # Let's inspect the SVC pipeline steps to find feature names if possible,
+    # or just be robust.
+    # Robust fix: The SVC model was trained on X_soft which has: REFINED_11 + prob_cols
+    # We can try to get feature names from the scaler in the pipeline if available, or just
+    # ensure we have prob_pheno_-1 if it's missing.
+    
+    # We will simply check for prob_pheno_-1 and add it if missing
+    if 'prob_pheno_-1' not in df_phenos.columns:
+        df_phenos['prob_pheno_-1'] = 0.0
+        
     df_phenos = df_phenos.reindex(sorted(df_phenos.columns), axis=1) 
     
     # D. Prepare Model Inputs
