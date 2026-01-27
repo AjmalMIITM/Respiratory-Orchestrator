@@ -1,4 +1,4 @@
-# Stage 3.5: Data Preprocessing & Exploratory Analysis
+# Data Preprocessing & Exploratory Analysis
 
 ## 1. Data Preprocessing Pipeline
 
