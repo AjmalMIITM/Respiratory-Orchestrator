@@ -11,7 +11,7 @@ The dataset aggregates physiological time-series data into a **24-hour rolling w
 
 ---
 
-## 🛠️ Data Construction Logic
+##  Data Construction Logic
 
 ### 1. Cohort Definition (The "Who")
 We identified extubation events based on the following criteria:
