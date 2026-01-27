@@ -1,6 +1,6 @@
-# 🔬 Initial Results & Clinical Validation
+#  Initial Results & Clinical Validation
 
-## 1. Champion Model Selection
+## 1. Model Selection
 We benchmarked 9 models on high-noise, imbalanced ICU data (6.2% failure rate), including:  
 - Logistic Regression  
 - Random Forests  
