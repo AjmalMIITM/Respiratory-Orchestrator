@@ -20,8 +20,8 @@ While boosting models achieved strong aggregate metrics, they frequently overfit
 ## 2. Quantitative Performance (Stage-4 Validation)
 
 Models were evaluated in two configurations:
-- **Full Model:** 39 features  `Agent 3/Results/agent3_extubation_champion_v2_53percent.pkl`
-- **Lean Model:** 15 features  `
+- **Full Model:** 39 features  (`Agent 3/Results/agent3_extubation_champion_v2_53percent.pkl`)
+- **Lean Model:** 15 features  (`Agent 3/Results/agent3_lean_champion_15features.pkl`)
 
 To reflect real-world deployment constraints, we applied **safety-first threshold optimization**, fixing specificity at approximately **80%** to control alarm burden.
 
