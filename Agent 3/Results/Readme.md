@@ -81,3 +81,19 @@ Agent 3 relies primarily on **lung mechanics**, not just oxygen numbers.
 
 This pattern matches clinical expectations: patients can maintain normal SpO2 briefly, but rising pressures and support requirements expose hidden respiratory failure risk earlier.
 
+### Model Comparison: Why Ensemble Matters
+
+![Model Recall Comparison](F1.png)
+
+While **Logistic Regression** (top bar) achieved the highest raw Recall (~65%), it did so by predicting "Failure" almost indiscriminately (Precision < 2%). 
+
+- **Extra Trees (Agent 3)** strikes the critical balance: it maintains strong sensitivity (>55%) while offering enough specificity to be clinically usable.
+- Tree-based models (Random Forest, Decision Tree) generally outperformed linear baselines in capturing the non-linear interactions of lung mechanics.
+
+### Final Performance: The Cost of Safety
+
+![Agent 3 Confusion Matrix](F2.png)
+
+This confusion matrix shows Agent 3 operating in a safety‑first mode: it correctly identifies 105 of 187 actual failures (Recall ≈ 56%) while generating 1093 false alarms among 2812 actual successes (low Precision but high sensitivity to failure).
+
+
