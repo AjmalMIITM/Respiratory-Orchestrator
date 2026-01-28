@@ -3,72 +3,65 @@
 ## 1. Data Preprocessing Pipeline
 
 ### Overview
-The pipeline enforces physiological constraints, standardizes units, and manages missing data through domain-specific clinical assumptions rather than generic statistical imputation.
+The preprocessing pipeline enforces physiological constraints, standardizes mixed units, and manages missing data. The methodology prioritizes data integrity to prevent "optimistic bias" and ensures that the model is trained on biologically plausible inputs.
 
 ### Methodology
-The transformation logic follows a five-phase execution order:
+The transformation logic follows a strict order of operations to ensure consistency and prevent data leakage:
 
-#### 1. Safe Split (Data Protection)
-Before mathematical operations begin, specific metadata columns are isolated to prevent data corruption or leakage.
-*   **Excluded Columns:** `visit_occurrence_id`, `extubation_time`, `success_48h`.
-*   **Objective:** Protect patient identifiers and target variables from accidental scaling or imputation during the cleaning process.
+#### Phase 1: Train-Test Split (Leakage Prevention)
+To ensure the validity of validation metrics, the dataset is split into Training and Test sets prior to any statistical calculation.
+* **Objective:** Imputation statistics (such as the Median) are derived exclusively from the Training set and subsequently applied to the Test set. This prevents data leakage where information from the test set could inadvertently influence the training process.
+* **Implementation:** Explicit deep copies (`.copy()`) are utilized to manage memory references and prevent `SettingWithCopy` warnings.
 
-#### 2. Physics Engine (Artifact Removal)
-Hard physiological boundaries are applied to eliminate sensor artifacts and standardize unit scales.
+#### Phase 2: Unit Standardization (SpO2)
+A data inconsistency was identified in the SpO2 (Oxygen Saturation) column, where values were recorded in varying scales (ratios vs. percentages).
+* **Issue:** Entries were mixed between ratio format (e.g., `0.98`) and integer percentage format (e.g., `98.0`).
+* **Resolution:** A standardization function was applied to unify all values to the [0-100] percentage scale:
+    ```python
+    if x <= 1.0:
+        return x * 100
+    else:
+        return x
+    ```
+
+#### Phase 3: Physiological Constraints (Outlier Clipping)
+Hard physiological boundaries were applied to eliminate sensor artifacts, such as disconnects or machine noise, ensuring all data points remain within biologically possible ranges.
 
 | Feature | Issue Addressed | Logic Applied |
 | :--- | :--- | :--- |
-| **SpO2** | Mixed Scaling (0.98 vs 98.0) | Values less than or equal to 1.0 are multiplied by 100. The entire column is clipped to the range [50, 100]. |
-| **RSBI** | Unit Confusion | Clipped to [0, 300] to remove outliers caused by incorrect tidal volume units. |
-| **Pressure Support** | Sensor Error Codes | Clipped to [0, 40] cmH2O. |
-| **Driving Pressure** | Physiological Outliers | Clipped to [0, 40] cmH2O. |
-| **Urine Output** | Negative Balance Calculations | Clipped to [0, 10,000] mL (24h total). |
-| **Heart Rate** | Machine Noise | Clipped to [30, 250] BPM. |
+| **PEEP** | Sensor spikes (>40 cmH2O) | Capped at **40 cmH2O**. |
+| **Peak Pressure** | Machine noise/artifacts | Capped at **100 cmH2O**. |
+| **FiO2** | Impossible values (<21%) | Floored at **0.21** (Room Air). |
 
-#### 3. Clinical Normal Imputation
-For invasive laboratory tests and neurological scores, a "Missingness Implies Stability" logic is utilized. Missing values are filled with clinically normal baselines, assuming that the absence of a test indicates the clinician deemed the patient stable.
+#### Phase 4: Zero-Value Handling & Imputation
+Zeros in vital sign columns were treated as **Missing Data** rather than valid physiological measurements.
+* **Rationale:** A respiratory rate or SpO2 of `0.0` typically indicates a sensor disconnect or error rather than a true biological state.
+* **Action:** Values of `0.0` were replaced with `NaN`.
+* **Imputation Strategy:** `NaN` values were imputed using the **Training Set Median**.
+    * *Why Median?* Offers greater robustness against outliers compared to the Mean.
+    * *Why Training Set?* Simulates a real-world inference environment where future data statistics are unknown.
 
-| Feature | Imputed Value | Clinical Rationale |
-| :--- | :--- | :--- |
-| **pH (Last/Min)** | 7.40 | Perfect physiological balance. |
-| **PaCO2 (Last/Max)** | 40.0 mmHg | Normal alveolar ventilation. |
-| **PaO2 (Last/Min)** | 90.0 mmHg | Normal arterial oxygenation. |
-| **Lactate (Last/Max)** | 11.0 mg/dL | Normal non-septic baseline (~1.2 mmol/L). |
-| **Bicarbonate** | 24.0 mEq/L | Normal metabolic buffer. |
-| **RASS (Median/Last)** | 0.0 | Alert and Calm state. |
-| **Creatinine** | 0.9 mg/dL | Normal kidney filtration. |
-| **BUN** | 15.0 mg/dL | Normal urea nitrogen levels. |
-| **Hemoglobin** | 12.0 g/dL | Normal oxygen-carrying capacity. |
-
-#### 4. Median Fallback
-For continuous vital signs (Heart Rate, Respiratory Rate, SpO2) where data is expected to be continuous, missing values are treated as sensor loss.
-*   **Method:** Missing entries in these remaining columns are filled using the **cohort median**.
-*   **Rationale:** Preserves the central tendency of the distribution for common vitals.
-
-#### 5. Recombination
-The cleaned feature set is concatenated with the originally isolated metadata columns to produce the final dataset.
+#### Phase 5: Feature Selection
+Dimensionality was reduced to the 7 most predictive features to minimize overfitting and enhance model interpretability.
+* **Selected Features:** `driving_pressure`, `last_ppeak`, `median_rr`, `min_spo2`, `last_fio2`, `last_peep`, `last_ps`.
 
 ---
 
 ## 2. Post-Hoc Exploratory Data Analysis (EDA)
 
-Following the execution of the pipeline, a comprehensive EDA was conducted to validate data integrity and identify physiological signals.
+Following the execution of the pipeline, data integrity and physiological validity were verified.
 
-### Integrity and Quality Assurance
-*   **Data Density:** The final dataset contains **0 missing values** (100% completeness).
-*   **Imputation Validation:** Laboratory values (e.g., Lactate) exhibit a distinct distribution spike at the imputed "normal" baseline, confirming that missing data was handled via the defined clinical defaults rather than stochastic filling.
-*   **Boundary Validation:** SpO2 is strictly bounded at 100%, and RSBI tails are cleanly clipped at 300, confirming the "Physics Engine" successfully removed artifacts.
+### Integrity Checks
+* **SpO2 Mean Shift:** The mean `min_spo2` shifted from **35.6** (Raw/Mixed) to **~96.0** (Cleaned), confirming successful unit unification.
+* **Constraint Verification:** Features such as `last_fio2` were verified to contain no biologically impossible values (Minimum established at 0.21).
 
-### Physiological Signal Analysis
-Visual analysis reveals distinct patterns distinguishing the "Success" (1) and "Failure" (0) cohorts:
-
-*   **Hypoxic Tail:** The "Failure" cohort exhibits a wider distribution in Oxygen Saturation (SpO2), with a notable density drifting below 92%. In contrast, the "Success" cohort is tightly clustered near 98-100%.
-*   **The "Safe Zone":** Density estimation identified a clear cluster of successful outcomes defined by **RSBI (30-60)** and **SpO2 (>96%)**. Patients falling outside this high-density corridor exhibit a significantly higher probability of failure.
-*   **Correlation Signals:**
-    *   **Respiratory Rate:** Negative correlation (Tachypnea predicts failure).
-    *   **Min PaO2:** Negative correlation (Lower oxygenation reserves predict failure).
+### Physiological Signal Discovery
+Visual analysis of the cleaned data highlighted a distinct signal related to **Lung Stiffness**:
+* **Success Cohort:** Tightly clustered around a Driving Pressure of **8-12 cmH2O**.
+* **Failure Cohort:** Exhibited a "heavy tail" distribution with Driving Pressures extending beyond **15-20 cmH2O**.
+* **Significance:** This suggests that mechanical lung properties (specifically Amato's Driving Pressure) act as a stronger discriminator for extubation failure than oxygenation metrics (SpO2) in this dataset.
 
 ### Execution Summary
-*   **Original Dimensions:** (14,992, 37)
-*   **Final Dimensions:** (14,992, 37)
-*   **Status:** Physiologically bounded, fully dense, and validated for training.
+* **Original Dimensions:** (14,992, 8)
+* **Final Dimensions:** (14,992, 7)
+* **Status:** The dataset is physiologically unified, imputed without leakage, and optimized for model training.
