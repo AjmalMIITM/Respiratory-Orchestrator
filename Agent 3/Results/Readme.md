@@ -25,16 +25,14 @@ A **Soft Voting Ensemble** combining **Logistic Regression** and **Extra Trees C
 
 The model was optimized for **Recall (Sensitivity)** rather than Precision. In a clinical screening context, a False Negative (missing a high-risk patient) is considered catastrophic, whereas a False Positive (precautionary check of a safe patient) is an acceptable trade-off.
 
-### Primary Results (7-Feature Set)
+### Primary Results (7 features)
 
 | Metric | Value | Clinical Interpretation |
-| :--- | :--- | :--- |
-| **Sensitivity (Recall)** | **56.1%** | Identifies **>1 out of every 2 failures** that standard protocols may miss. |
-| **Specificity** | **~90%** | Correctly clears 90% of low-risk patients, keeping alarm fatigue manageable. |
-| **Detection Threshold** | **0.50** | Standardized probability threshold. |
-
-**Comparison to Baseline:**
-Standard boosting models achieved **0% Sensitivity**. The ensemble approach successfully unlocked a viable safety tool from the same dataset by prioritizing minority class detection.
+|--------|-------|------------------------|
+| **Failure Recall** | **43.9%** | Catches ~44% of extubation failures |
+| **Safe NPV** | **91.2%** | "Safe" predictions reliable |
+| **Failure AUC** | **62.5%** | Strong discrimination power |
+| **Threshold** | **0.50** | Standard clinical cutoff |
 
 ---
 
@@ -95,5 +93,6 @@ While **Logistic Regression** (top bar) achieved the highest raw Recall (~65%), 
 ![Agent 3 Confusion Matrix](F2.png)
 
 This confusion matrix shows Agent 3 operating in a safety‑first mode: it correctly identifies 105 of 187 actual failures (Recall ≈ 56%) while generating 1093 false alarms among 2812 actual successes (low Precision but high sensitivity to failure).
+
 
 
