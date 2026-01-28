@@ -1,125 +1,75 @@
-# Agent 3 Extubation Advisor
+# Agent 3: Extubation Advisor
+**A Clinical AI Pipeline for Predicting Post-Extubation Failure**
 
-## Overview
-Agent 3 is a supervised machine learning pipeline designed to predict **extubation failure within 48 hours** in ICU patients using routinely collected physiological telemetry. The system operates on a **time-zero snapshot**, aggregating the 24 hours of data preceding extubation and producing a risk estimate to support clinical decision-making.
+##  Overview
+**Agent 3** is a supervised machine learning system designed to predict extubation failure (re-intubation requirement) within a **48-hour window** for ICU patients. By synthesizing 24 hours of physiological telemetry into a risk score, Agent 3 acts as a high-sensitivity screening tool to support clinical weaning decisions.
 
-The pipeline is organized into four stages:
-1. Dataset construction and labeling  
-2. Physiologically informed preprocessing and exploratory analysis  
-3. Model training, evaluation, and clinical validation  
-4. Visualization and diagnostic plots  
-
----
-
-## Dataset: Extubation Events
-**Path:** `Agent 3/Data Extraction/`
-
-The dataset captures ICU extubation events for patients mechanically ventilated for at least 24 hours.
-
-### Key Characteristics
-- **Task:** Binary classification (Success vs. Failure)
-- **Prediction Window:** 2–48 hours post-extubation
-- **Input Window:** 24 hours prior to extubation
-- **Class Balance:** ~93.8% Success / ~6.2% Failure
-- **Sample Size:** 14,992 extubation events
-
-### Label Definition
-- **Failure (0):** Evidence of invasive ventilation (PEEP, Peak, or Plateau Pressure > 5 cmH₂O) within 48 hours
-- **Success (1):** No invasive ventilation observed
-
-### Feature Domains
-- Ventilator mechanics
-- Oxygenation and gas exchange
-- Neurological status
-- Hemodynamics
-- Renal and fluid balance
-
-Clinically established features (e.g., RSBI, P/F ratio, driving pressure) are explicitly derived to reflect standard weaning criteria.
+### Key Technical Achievements
+* **Architecture:** Soft Voting Ensemble (Extra Trees + Logistic Regression).
+* **Performance:** Achieved **43.9% Recall** on highly imbalanced data (6.2% prevalence) where standard Boosting models failed (0% recall).
+* **Validation:** Passed physiological "Stress Tests," successfully identifying the **Amato Threshold** for lung stiffness and **P/F Ratio dynamics**.
 
 ---
 
-## Data Preprocessing & Exploratory Analysis
-**Path:** `Agent 3/EDA and Preprocessing/`
-
-A domain-driven preprocessing pipeline was developed to enforce physiological realism and preserve clinical meaning.
-
-### Preprocessing Principles
-- **Data Protection:** Identifiers and targets isolated prior to transformations  
-- **Physiological Bounding:** Hard limits applied to remove sensor artifacts  
-- **Clinical Imputation:** Missing invasive labs assumed normal when absent  
-- **Median Fallback:** Applied only to continuous vitals where data continuity is expected  
-
-### Outcome
-- Final dataset is **100% complete** (no missing values)  
-- All features fall within clinically plausible ranges  
-- Dimensionality preserved: `(14,992 × 37)`  
-
-### EDA Highlights
-- Failure cohort exhibits broader hypoxic tails (SpO₂ < 92%)  
-- A high-density “safe zone” identified with RSBI 30–60 and SpO₂ > 96%  
-- Failure risk correlates with tachypnea, hypoxemia, and ventilation inefficiency  
+##  Repository Structure
+* [**Data Extraction**](./Agent%203/Data%20Extraction/): Cohort definition, labeling logic, and 24-hour rolling window aggregation.
+* [**EDA & Preprocessing**](./Agent%203/EDA%20and%20Preprocessing/): Unit standardization (SpO₂), outlier clipping, and leakage-free imputation.
+* [**Results & Validation**](./Agent%203/Results/): Model benchmarking, Ensemble optimization, and clinical stress test reports.
+* [**Plots**](./Agent%203/Plots/): Visual diagnostics, SHAP interpretability, and feature distribution analysis.
 
 ---
 
-## Modeling Results & Clinical Validation
-**Path:** `Agent 3/Results/`
+##  The "Golden 7" Features
+Rather than using high-dimensional noise, Agent 3 utilizes seven core features that represent the "work of breathing" and lung mechanics:
 
-### Model Selection
-Nine architectures were benchmarked on imbalanced ICU data:
-- Logistic Regression  
-- Random Forests  
-- Gradient Boosting (XGBoost, LightGBM, CatBoost)  
-
-**Selected Model:** Extra Trees Classifier  
-
-**Rationale:** Gradient Boosting models overfit stochastic physiological noise, while Extra Trees provided superior robustness and generalization.
-
-### Optimization Strategy
-- Accuracy avoided due to class imbalance  
-- Optimized for **Recall at fixed 80% Specificity**  
-- Safety-first operating threshold applied  
-
-### Performance at Operating Point (P > 0.543)
-| Metric | Value |
-|------|------|
-| Sensitivity (Recall) | 40.1% |
-| Specificity | 80.2% |
-| AUROC | 0.67 |
-| Precision | 12.0% |
-
-The model is intended as a **high-sensitivity screening tool**, not a definitive diagnostic.
-
-### Interpretability
-SHAP analysis confirms alignment with respiratory physiology:
-- Hypoxia (`min_spo2`) is the strongest driver of failure  
-- Hypercapnia (`paco2`) and work of breathing indicate respiratory fatigue  
-- Stable pH and low respiratory rate variability predict success  
+| Feature | Aggregation | Clinical Significance |
+| :--- | :--- | :--- |
+| **Driving Pressure** | Calculated | Plateau − PEEP (Indicates lung stiffness/compliance) |
+| **Last Peak Pressure** | Last | Maximum inspiratory effort and airway resistance |
+| **Median Resp Rate** | Median | 24-hour respiratory frequency trend |
+| **Min SpO₂** | Minimum | Captures the "Hypoxic Tail" (lowest oxygen events) |
+| **Last FiO₂** | Last | Degree of oxygen dependency |
+| **Last PEEP** | Last | Positive End-Expiratory Pressure requirements |
+| **Last Pressure Support**| Last | Level of mechanical assistance during weaning |
 
 ---
 
-## Plots & Visual Diagnostics
-**Path:** `Agent 3/Plots/`
+## Data Pipeline & Preprocessing
+To ensure biological plausibility and model integrity, the pipeline includes:
 
-The repository includes curated visualizations for data validation and model assessment.
-
-### EDA Plots
-**Directory:** `Agent 3/Plots/EDA/`  
-Includes:
-- Feature distributions stratified by outcome  
-- Density plots highlighting physiological risk zones  
-- Correlation and variability analyses  
-
-### Initial Results Plots
-**Directory:** `Agent 3/Plots/Initial Results/`  
-Includes:
-- ROC curves and AUROC comparisons  
-- Confusion matrices at the operating threshold  
-- Feature importance and SHAP summary plots  
+1.  **Leakage Prevention:** All imputation statistics (Median) are derived strictly from the Training Set and applied to the Test Set.
+2.  **SpO₂ Standardization:** Unified mixed-unit records (0.0–1.0 vs 0–100%), shifting the mean from a corrupted 35.6% to a physiologically valid 90.8%.
+3.  **Physiological Clipping:** Hard bounds applied to remove sensor artifacts (PEEP capped at 40, FiO₂ floored at 0.21).
+4.  **Signal Discovery:** Identified that **Driving Pressure** (lung mechanics) is a significantly stronger discriminator for failure than oxygenation metrics alone in this cohort.
 
 ---
 
-## Summary
-Agent 3 demonstrates that routinely collected ICU telemetry contains a meaningful predictive signal for extubation failure. By combining physiologically grounded preprocessing with a noise-robust ensemble model, the system identifies approximately **2 out of 5 failures** in advance, providing a clinically actionable safety net for extubation decision support.
+##  Modeling & Clinical Validation
+
+### The Ensemble Strategy
+Standard models like XGBoost and AdaBoost achieved **0% Recall** due to the extreme class imbalance (93.8% Success). To solve this, we implemented a **Soft Voting Ensemble**:
+* **Components:** Weighted Logistic Regression + Extra Trees Classifier.
+* **Rationale:** Combines the high linear sensitivity of Logistic Regression with the non-linear interaction capturing of Extra Trees.
+
+### Quantitative Performance
+| Metric | Value | Clinical Interpretation |
+| :--- | :--- | :--- |
+| **Failure Recall** | **43.9%** | Correctly identifies ~2 out of 5 failures in advance |
+| **Safe NPV** | **91.2%** | High reliability for "Safe to Extubate" predictions |
+| **AUROC** | **0.63** | Stronger discrimination than standard clinical baselines |
+
+
+
+### Clinical Stress Testing (Proof of Medicine)
+To verify the model learned medical logic rather than statistical noise, we subjected it to "synthetic" patient stress tests:
+* **Lung Mechanics Test:** Risk scores spike exponentially once Driving Pressure exceeds **15 cmH₂O**, aligning with the **Amato Threshold**.
+* **Oxygen Masking Test:** The model correctly flags "High Risk" for patients on 100% FiO₂ even if their SpO₂ is normal (95%), proving it understands **P/F Ratio dynamics**.
+* **Deterioration Trajectory:** Risk scores escalate continuously as Respiratory Rate rises and lungs stiffen, providing a graded "Early Warning" signal.
+
+---
+
+##  Conclusion
+Agent 3 demonstrates that routinely collected ICU telemetry contains a meaningful predictive signal for extubation failure. By prioritizing **Recall** and **Physiological Grounding**, the system provides a clinically actionable safety net for decision support.
 
 ---
 
@@ -132,8 +82,5 @@ Agent 3/
 │   └── Readme.md
 ├── Results/
 │   └── Readme.md
-├── Plots/
-│   ├── EDA/
-│   └── Initial Results/
 └── Readme.md (You are here:)
 
