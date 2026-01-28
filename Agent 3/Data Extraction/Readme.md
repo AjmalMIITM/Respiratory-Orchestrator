@@ -1,85 +1,86 @@
-# Dataset: Agent 3 (Extubation Advisor)
+# Agent 3 (Extubation Advisor)
 
-**File Name:** `Code`
-
----
-
-##  Overview
-This dataset captures **Extubation Events** from the ICU. It is designed for a Supervised Machine Learning task: predicting whether a patient will successfully breathe on their own or fail (require reintubation) within 48 hours.
-
-The dataset aggregates physiological time-series data into a **24-hour rolling window** prior to the extubation decision.
+**Source:** Extracted ICU Telemetry Features  
+**Task:** Binary Classification — Extubation Failure Prediction
 
 ---
 
-##  Data Construction Logic
+## Overview
 
-### 1. Cohort Definition (The "Who")
-We identified extubation events based on the following criteria:
-*   **Ventilation Duration:** Patient must have been mechanically ventilated for **≥ 24 hours**.
-*   **Event Detection:** An extubation is defined as the end of a continuous ventilation sequence where the subsequent gap in ventilation data is **≥ 24 hours** (or the data ends, implying discharge).
-*   **Exclusions:** Short-term ventilation (<24h) and transient disconnects (<24h gap) were filtered out.
+This dataset captures extubation events from the intensive care unit (ICU) and is designed for a supervised machine learning task: predicting whether a patient will experience extubation failure (requiring re-intubation) within 48 hours.
 
-### 2. Labeling Logic (The "Target")
-The target variable is `success_48h`.
-*   **Window:** `[t_extubation + 2h, t_extubation + 48h]`
-*   **Failure (0):** Presence of invasive ventilation measurements (PEEP, Peak Pressure, or Plateau Pressure > 5 cmH2O) within the window. This indicates **Reintubation**.
-*   **Success (1):** No invasive ventilation measurements found in the window.
-*   **Class Balance:** ~93.8% Success / ~6.2% Failure.
-
-### 3. Feature Engineering (The "Inputs")
-Features are aggregated from the **24 hours prior** to extubation (`t-24h` to `t0`).
-
-| Feature Category | Aggregations Used | Key Concepts (OMOP/Source) |
-| :--- | :--- | :--- |
-| **Ventilator Mechanics** | Max, Last, Mean | PEEP, Peak Pressure, Pressure Support (PSV), FiO2, Tidal Volume (Expired), Respiratory Rate |
-| **Oxygenation** | Min, Mean, Last, StdDev | SpO2, PaO2, P/F Ratio (Derived) |
-| **Gas Exchange (ABG)** | Min, Last | pH, PaCO2, Bicarbonate, Lactate |
-| **Neurological** | Min, Median, Last | RASS Score (Sedation), GCS Total |
-| **Hemodynamics** | Max | Heart Rate (EKG/PulseOx) |
-| **Renal/Fluids** | Sum, Last | Total Urine Output (24h), Creatinine, BUN |
+Physiological time-series data are aggregated over a **24-hour rolling window** preceding the extubation decision.
 
 ---
 
-##  Data Dictionary
+## Cohort Definition and Labeling
 
-### Identifiers
-*   `visit_occurrence_id`: Unique admission identifier.
-*   `extubation_time`: Timestamp of the extubation event (`t0`).
+### 1. Cohort Definition
 
-### Calculated "SOTA" Features
-*   `rsbi_last`: Rapid Shallow Breathing Index (RR / TV_Liters) at `t0`.
-*   `rsbi_median`: Median RSBI over the last 24h.
-*   `pf_ratio_last`: PaO2 / FiO2 ratio at `t0`.
-*   `driving_pressure`: Plateau Pressure - PEEP (Lung Compliance proxy).
+Extubation events were identified based on the following criteria:
 
-### Ventilator Features
-*   `last_ps`, `max_ps`: Pressure Support (cmH2O). **Crucial for weaning assessment.**
-*   `last_peep`, `median_peep`: PEEP settings.
-*   `last_tv_liters`, `median_tv_liters`: Tidal Volume (Normalized to Liters).
-*   `last_rr`, `median_rr`, `std_rr`: Respiratory Rate and variability.
-*   `last_fio2`, `max_fio2`: Fraction of Inspired Oxygen (0.21 - 1.0).
+- **Ventilation Duration:** Patients were mechanically ventilated for a clinically meaningful duration, representing true weaning candidates.
+- **Event Definition:** Extubation was defined as cessation of invasive mechanical ventilation.
+- **Exclusions:** Short-term disconnections and transient measurement gaps were excluded to avoid false events.
 
-### Physiological Features
-*   `median_spo2`, `min_spo2`, `std_spo2`: Oxygen Saturation (%).
-*   `last_ph`, `min_ph`: Arterial pH (Acidosis check).
-*   `last_paco2`: Arterial CO2 (Ventilation efficiency).
-*   `last_lactate`: Serum Lactate (Tissue perfusion).
-*   `median_rass`, `last_rass`: Richmond Agitation-Sedation Scale (-5 to +4).
-*   `total_urine_24h`: Cumulative Urine Output (mL).
-
-### Target
-*   `success_48h`: **1** = Success, **0** = Failure (Reintubation).
-  
-| Scenario  | Did they find PEEP > 5 in the next 48h?           | failure_signals Count | Label (success_48h) |
-| --------- | ------------------------------------------------- | --------------------- | ------------------- |
-| Patient A | No. They went to the floor and stayed safe.       | 0                     | 1 (Success)         |
-| Patient B | Yes. They crashed and got reintubated at hour 20. | 24 (hourly checks)    | 0 (Failure)         |
-| Patient C | No measurements found (Discharged/died off-vent). | 0                     | 1 (Success)         |
 ---
 
-## Notes for Modeling
-1.  **Missing Data:** Labs (Lactate, pH, BUN) may have high missingness (~40-60%) as stable patients do not get frequent blood draws.
-2.  **Imbalance:** The dataset is imbalanced (15:1). Use `scale_pos_weight` in XGBoost/LightGBM or stratified sampling.
-3.  **Tidal Volume:** All Tidal Volumes have been normalized to **Liters** (e.g., 0.500) to ensure the RSBI calculation (`RR / TV`) is mathematically correct.
+### 2. Labeling Logic
+
+The target variable is `success_48h` (mapped to `target_failure` during model training).
+
+- **Evaluation Window:** `[t_extubation + 2h, t_extubation + 48h]`
+- **Failure (0):** Presence of invasive ventilation measurements (PEEP > 5 cmH₂O) within the evaluation window, indicating re-intubation.
+- **Success (1):** No invasive ventilation measurements detected.
+- **Class Distribution:** Approximately 93.8% Success / 6.2% Failure.
+
+| Scenario | Outcome Description | Label (`success_48h`) |
+|--------|---------------------|----------------------|
+| Patient A | Extubated → Transferred to floor → No re-intubation | 1 (Success) |
+| Patient B | Extubated → Clinical deterioration → Re-intubated at hour 20 | 0 (Failure) |
+| Patient C | Extubated → No subsequent measurements (discharged or deceased) | 1 (Success) |
+
+---
+
+## Feature Engineering
+
+All features are derived from the **24 hours prior to extubation**.
+
+### Final Model Feature Set (Core 7)
+
+Based on feature importance analysis, the following seven features drive the final Agent 3 model:
+
+| Feature | Aggregation | Description | Mean |
+|-------|-------------|-------------|------|
+| `driving_pressure` | Calculated | Plateau Pressure − PEEP (lung stiffness) | ~8.9 cmH₂O |
+| `last_ppeak` | Last | Peak inspiratory pressure | ~15.0 cmH₂O |
+| `median_rr` | Median | Respiratory rate trend (24h) | ~19.5 breaths/min |
+| `min_spo2` | Minimum | Lowest oxygen saturation | Mixed scale |
+| `last_fio2` | Last | Fraction of inspired oxygen | ~0.41 |
+| `last_peep` | Last | Positive end-expiratory pressure | ~6.5 cmH₂O |
+| `last_ps` | Last | Pressure support level | ~7.2 cmH₂O |
+
+---
+
+### Additional Available Features
+
+The full feature extraction pipeline included additional variables across multiple domains:
+
+- **Calculated:** `rsbi_last` (Rapid Shallow Breathing Index), `pf_ratio_last`
+- **Laboratory:** `last_ph`, `last_lactate`, `last_paco2`, `total_urine_24h`
+- **Neurological:** `median_rass` (sedation score)
+
+---
+
+## Data Processing Notes
+
+1. **Class Imbalance**  
+   The dataset exhibits significant imbalance (~15:1 success-to-failure ratio). Model training required explicit class weighting to maintain sensitivity to failure events.
+
+2. **Missing vs. Structural Zeros**  
+   Certain variables (e.g., `last_ps`) contain zero values representing specific ventilation modes (such as T-piece trials) rather than missing data. These were preserved where clinically appropriate.
+
+3. **Unit Consistency**  
+   Oxygen saturation (`SpO₂`) values were recorded using mixed units (0–1 ratios and 0–100 percentages). Values were standardized during preprocessing to ensure consistent interpretation.
 
 ---
