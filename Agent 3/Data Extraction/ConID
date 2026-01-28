@@ -1,0 +1,59 @@
+FINAL_FEATURE_MAP = {
+    # ============================================================
+    # 1. VENTILATOR MECHANICS (The "Readiness" Signals)
+    # ============================================================
+    'pressure_support': [3000461],          # Verified (952k rows) - Critical for Weaning
+    'tidal_volume_expired': [3015016],      # Verified V2 - Actual volume delivered
+    'resp_rate_observed': [3024171],        # Verified V2 - Distress signal
+    'peep_set': [3022875],                  # Verified V2 - Lung protection
+    'fio2_set': [3024882],                  # Verified V2 - Oxygen requirement
+    'plateau_pressure': [44782825],         # Verified V2 - Lung compliance
+
+    # ============================================================
+    # 2. OXYGENATION & GAS EXCHANGE (The "Success" Signals)
+    # ============================================================
+    'spo2': [40762499, 3016502],            # Verified (15M+ rows combined)
+    'ph_arterial': [3019977],               # Verified (1M rows) - Acidosis check
+    'ph_general': [3010421],                # Fallback if Arterial missing
+    'bicarb_arterial': [3008152],           # Verified (1M rows) - Metabolic check
+    'paco2': [3013290],                     # Verified V2 - Ventilation efficiency
+    'pao2': [3027315],                      # Verified V2 - Hypoxemia check
+    'lactate': [3018405],                   # Verified V2 - Tissue perfusion
+
+    # ============================================================
+    # 3. NEUROLOGICAL STATUS (The "Protection" Signals)
+    # ============================================================
+    'rass_score': [2000000016],             # Verified (172k rows) - Agitation/Coma
+    # Note: Ramsay Score dropped (only 193 rows)
+
+    # ============================================================
+    # 4. HEMODYNAMICS (The "Stability" Signals)
+    # ============================================================
+    'heart_rate': [21490872, 3001376],      # EKG (Primary) + PulseOx (Secondary)
+    'map_invasive': [21490853],             # Arterial line Mean BP
+    'map_noninvasive': [21492239],          # Cuff Mean BP
+    'temp_core': [3020891, 21490870],       # General + Bladder
+
+    # ============================================================
+    # 5. RENAL & FLUIDS (The "Edema" Signals)
+    # ============================================================
+    'urine_output': [3014315],              # Verified (2.8M rows)
+    'fluid_intake_iv': [3037253],           # Verified V2
+    'creatinine': [3020564],                # Verified V2
+    'bun': [43534077],                      # Verified V2
+
+    # ============================================================
+    # 6. INFLAMMATION & LABS (The "Baseline" Signals)
+    # ============================================================
+    'hemoglobin': [40762351],               # Verified V2
+    'wbc': [3010813],                       # Verified V2
+    'crp': [3020460],                       # Verified V2
+    'sodium': [3000285],                    # Verified V2
+    'potassium': [3005456],                 # Verified V2
+    
+    # ============================================================
+    # 7. DRUG EXPOSURE FLAGS (Vasopressors)
+    # ============================================================
+    # These are usually in 'drug_exposure' table, not 'measurement'
+    'vasopressors': [2907531, 19076867]     # Norepinephrine, Epinephrine
+}
