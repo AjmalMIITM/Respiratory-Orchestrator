@@ -66,3 +66,18 @@ The final model demonstrates that a **Small Data** approach (7 features) combine
 1. **Handling Imbalance:** Successfully extracts signal from a target variable with only 6% prevalence.
 2. **Biological Validity:** Demonstrates a grounded understanding of physiological principles, including Driving Pressure and Oxygen Dependency.
 3. **Deployability:** Operates using only 7 standard bedside vital signs, eliminating the need for expensive or invasive laboratory testing.
+
+## Appendix A
+### Feature Attribution: The "Golden 7"
+
+![Golden 7 Feature Importance](F0.jpg)
+
+Agent 3 relies primarily on **lung mechanics**, not just oxygen numbers.
+
+- **Peak Pressure (Work)** and **Driving Pressure (Compliance)** are the top signals.
+- **PEEP Level** and **FiO2 Requirement** capture how much support the ventilator must provide.
+- **Pressure Support** and **Respiratory Rate** reflect work of breathing.
+- **SpO2 (Hypoxia)** still matters, but is less influential than mechanics.
+
+This pattern matches clinical expectations: patients can maintain normal SpO2 briefly, but rising pressures and support requirements expose hidden respiratory failure risk earlier.
+
