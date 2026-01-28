@@ -23,6 +23,18 @@ A data inconsistency was identified in the SpO2 (Oxygen Saturation) column, wher
     else:
         return x
     ```
+    ### EDA Chart 1: SpO2 Unit Unification
+
+![SpO2 Distribution](F4.png)
+
+**Key Finding:**
+After detecting and correcting the mixed-unit issue (where some SpO2 values were recorded as ratios `0.0-1.0` and others as percentages `0-100`), the distribution now accurately reflects the physiological reality of ICU patients.
+
+*   **The Peak (96%):** Represents the majority of stable patients.
+*   **The Hypoxic Tail (<92%):** Captures the high-risk subset that the model must detect.
+
+This preprocessing step increased the SpO2 mean from **35.6** (corrupted) to **90.8** (valid), enabling the model to use oxygen saturation as a true predictive signal.
+
 
 #### Phase 3: Physiological Constraints (Outlier Clipping)
 Hard physiological boundaries were applied to eliminate sensor artifacts, such as disconnects or machine noise, ensuring all data points remain within biologically possible ranges.
