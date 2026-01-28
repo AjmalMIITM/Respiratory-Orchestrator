@@ -77,3 +77,35 @@ Visual analysis of the cleaned data highlighted a distinct signal related to **L
 * **Original Dimensions:** (14,992, 8)
 * **Final Dimensions:** (14,992, 7)
 * **Status:** The dataset is physiologically unified, imputed without leakage, and optimized for model training.
+
+## Appendix A
+### Peak Pressure and Extubation Outcome
+
+![Peak Pressure vs Outcome](F3.png)
+
+Peak inspiratory pressures are consistently higher in patients who fail extubation, with the failure distribution shifted rightward and a higher median compared to successes. This supports using ventilatory mechanics (rather than SpO2 alone) as early warning signals for extubation risk.
+
+### Driving Pressure: The Clear Signal
+
+![Driving Pressure vs Outcome](F5.png)
+
+Driving pressures cluster below the Amato safety limit of 15 cmH2O in both groups, but failures tend to sit closer to this threshold and show more variability. This reinforces the idea that even “acceptable” driving pressures can conceal patients at higher risk, motivating a model that integrates mechanics over time rather than a single cutoff.
+
+### Respiratory Rate: Failures Breathe Faster
+
+![Respiratory Rate Density by Outcome](F6.png)
+
+Patients who fail extubation tend to have a right‑shifted respiratory‑rate distribution, with more time spent at higher rates than successful cases. This supports respiratory rate as an additional work‑of‑breathing marker that the model can exploit alongside pressures and support settings.
+
+### How the Ventilator Signals Relate
+
+![Feature Correlation Matrix](F7.png)
+
+Ventilator features are moderately correlated, with especially strong coupling between peak pressure, driving pressure, PEEP, and pressure support. This clustered structure argues against relying on any single threshold (for example, FiO2 or SpO2 alone) and motivates a non‑linear model that can combine overlapping mechanics signals into a unified failure risk score.
+
+### The Oxygen Gap: High FiO2 with Low SpO2
+
+![FiO2 vs SpO2 by Outcome](F8.png)
+
+Even with high FiO2 (60-100%), some patients maintain SpO2 > 90%, masking hypoxemia. Failures cluster in this deceptive region more than successes, showing that oxygenation metrics alone cannot reliably predict extubation risk without ventilator mechanics context.
+
