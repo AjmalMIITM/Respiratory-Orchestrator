@@ -70,7 +70,7 @@ The final model demonstrates that a **Small Data** approach (7 features) combine
 ## Appendix A
 ### Feature Attribution: The "Golden 7"
 
-![Golden 7 Feature Importance](F0.jpg)
+![Golden 7 Feature Importance](F0.png)
 
 Agent 3 relies primarily on **lung mechanics**, not just oxygen numbers.
 
