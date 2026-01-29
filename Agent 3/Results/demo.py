@@ -66,7 +66,7 @@ def predict_and_plot(min_spo2, last_fio2, median_rr, last_ppeak, last_peep, last
     clear_output(wait=True)
 
     plt.figure(figsize=(8, 2))
-    color = 'green' if risk < 50 else 'orange' if risk < 60 else 'red'
+    color = 'green' if risk < 45 else 'orange' if risk < 60 else 'red'
 
     plt.barh(['Failure Risk'], [risk], color=color)
     plt.axvline(50, color='black', linestyle='--', label='Threshold')
