@@ -79,6 +79,7 @@ Want to see the model in action without running the full pipeline? Use our pre-p
    ```
    b)
    ```bash
+   cd Respiratory-Orchestrator
    cd "Agent A\demo"
    ```
 3. **Run the Prediction Script:**
