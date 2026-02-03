@@ -1,234 +1,164 @@
 """
 SOTA Inference Engine (The "Easy Button")
-Usage: python run_demo.py
-Result: outputs risk scores and phenotype assignments for the dummy patients.
+Usage: python run_inference.py --input dummy.csv
+Result: outputs risk scores and phenotype assignments.
 """
 
 import pandas as pd
 import numpy as np
 import joblib
+import argparse
 import os
-import warnings
+import sys
 
-from sklearn.metrics.pairwise import euclidean_distances
-
-# Suppress warnings for cleaner demo output
-warnings.filterwarnings("ignore")
-
-def predict_demo_patients():
-    print("=" * 80)
-    print("🏥 SOTA ICU PREDICTOR: LOADING BRAIN...")
-    print("=" * 80)
-
-    # ------------------------------------------------------------------
-    # 1. Paths (robust, repo-safe)
-    # ------------------------------------------------------------------
-    pkg_path = os.path.join("models", "sota_ensemble_pkg.pkl")
-    # Path to the external HDBSCAN model you just uploaded
-    hdb_external_path = os.path.join("models", "hdbscan_clusterer.joblib")
+def predict_new_patients(input_csv):
+    print("="*80)
+    print("SOTA ICU PREDICTOR: LOADING BRAIN...")
+    print("="*80)
     
-    input_csv = "dummy.csv"   # demo-local CSV
-
+    # 1. Load the Brain
+    # UPDATED PATH: Points to 'Agent A/demo/models/sota_ensemble_pkg.pkl'
+    # relative to the script location in 'Agent A/demo/'
+    pkg_path = os.path.join("models", "sota_ensemble_pkg.pkl")
+    
     if not os.path.exists(pkg_path):
-        raise FileNotFoundError(f"Model package not found at {pkg_path}")
-
-    if not os.path.exists(input_csv):
-        raise FileNotFoundError(f"Input CSV not found at {input_csv}")
-
-    # ------------------------------------------------------------------
-    # 2. Load model package
-    # ------------------------------------------------------------------
+        print(f"[ERROR] Model package not found at {pkg_path}.")
+        print("        Ensure 'sota_ensemble_pkg.pkl' is in the 'models' folder.")
+        return
+        
     pkg = joblib.load(pkg_path)
     print("[OK] Model Package Loaded.")
+    
+    # 2. Load New Data
+    if not os.path.exists(input_csv):
+        # Create Dummy Data for Demo if file doesn't exist
+        print(f"[WARN] Input file '{input_csv}' not found. Generating DEMO patients...")
+        data = pd.DataFrame([
+            # Patient A: High Risk (Resp Failure Profile)
+            [32, 340, 12, 160, 115, 4.2, 110, 68, 1, 0.6, 28],
+            # Patient B: Low Risk (Stable)
+            [18, 480, 5, 12, 72, 1.1, 85, 42, 0, 0.3, 14]
+        ], columns=pkg['features'])
+        print("[INFO] Generated 2 synthetic patients for demonstration.")
+    else:
+        data = pd.read_csv(input_csv)
+        # Ensure columns match
+        missing_cols = [c for c in pkg['features'] if c not in data.columns]
+        if missing_cols:
+            print(f"[ERROR] Input CSV missing columns: {missing_cols}")
+            return
+        data = data[pkg['features']]
 
-    required_keys = [
-        "features",
-        "imputer",
-        "umap_reducer",
-        "lgbm_model",
-        "xgb_model",
-        "svc_model",
-        "weights"
-    ]
-
-    for k in required_keys:
-        if k not in pkg:
-            raise KeyError(f"Model package missing required key: '{k}'")
-
-    # ------------------------------------------------------------------
-    # 3. Load and validate input data
-    # ------------------------------------------------------------------
-    data = pd.read_csv(input_csv)
-    print(f"[OK] Loaded input CSV with shape {data.shape}")
-
-    missing_cols = [c for c in pkg["features"] if c not in data.columns]
-    if missing_cols:
-        raise ValueError(f"Input CSV missing columns: {missing_cols}")
-
-    data = data[pkg["features"]]
-
-    # ------------------------------------------------------------------
-    # 4. Micro-Pipeline (EDA → UMAP → Phenotype)
-    # ------------------------------------------------------------------
+    # 3. Micro-Pipeline
     print("\n[PROCESSING] Running Transformations...")
-
-    # A. Imputation (NO fit at inference)
-    X_imputed = pkg["imputer"].transform(data)
-
-    # B. UMAP projection
-    X_umap = pkg["umap_reducer"].transform(X_imputed)
-
-    # ------------------------------------------------------------------
-    # C. Phenotype inference (Updated Logic)
-    # ------------------------------------------------------------------
-    assigned_phenos = []
-    df_phenos = None
-    hdb_model = None
-
-    # Logic: Check external file -> Check inside package -> Fallback
-    if os.path.exists(hdb_external_path):
-        try:
-            hdb_model = joblib.load(hdb_external_path)
-            print(f"[OK] Loaded HDBSCAN from external file: {hdb_external_path}")
-        except Exception as e:
-            print(f"[WARN] Failed to load external HDBSCAN: {e}")
-    elif "hdbscan_model" in pkg:
-        print("[OK] Loaded HDBSCAN from model package.")
-        hdb_model = pkg["hdbscan_model"]
-
-    # --- Execution Path A: HDBSCAN Inference ---
-    if hdb_model is not None:
-        try:
-            # 1. Hard Assignment
-            labels, strengths = hdb_model.approximate_predict(X_umap)
-            assigned_phenos = labels.tolist()
-
-            # 2. Soft Probabilities (Deep Phenotypes)
-            soft_probs = hdb_model.membership_vector(X_umap)
-            
-            # Create DataFrame with correct column names
-            df_phenos = pd.DataFrame(
-                soft_probs,
-                columns=[f"prob_pheno_{i}" for i in range(soft_probs.shape[1])]
-            )
-            
-        except AttributeError:
-             # Handle case where approximate_predict isn't available (version mismatch)
-             print("[WARN] HDBSCAN version mismatch/method missing. Reverting to centroids.")
-             hdb_model = None 
-
-    # --- Execution Path B: Centroid Fallback ---
-    if hdb_model is None and "umap_centroids" in pkg:
-        print("[WARN] HDBSCAN not usable — using centroid fallback.")
-
-        centroids = pkg["umap_centroids"].values
-        centroid_labels = pkg["umap_centroids"].index.values
-
-        dists = euclidean_distances(X_umap, centroids)
-        soft_rows = []
-
-        for i in range(len(X_umap)):
-            # Temperature-scaled Softmax based on distance
-            weights = np.exp(-dists[i] / 0.5)   
-            probs = weights / np.sum(weights)
-
-            # Hard Assignment (Closest Centroid)
-            assigned_phenos.append(
-                centroid_labels[np.argmax(probs)]
-            )
-
-            # Soft Assignment
-            soft_rows.append({
-                f"prob_pheno_{label}": probs[idx]
-                for idx, label in enumerate(centroid_labels)
-            })
-
-        df_phenos = pd.DataFrame(soft_rows)
-
-    elif hdb_model is None:
-        raise RuntimeError(
-            "CRITICAL ERROR: No phenotype inference method found. "
-            "Ensure 'hdbscan_clusterer.joblib' is in models/ or 'umap_centroids' is in pkg."
-        )
-
-    # Clean up: Drop noise column if present (usually -1)
-    # We filter columns ending in "_-1" just in case
-    df_phenos = df_phenos.loc[
-        :, ~df_phenos.columns.astype(str).str.endswith("_-1")
-    ]
-
-    # Sort columns to ensure feature alignment matches training
-    df_phenos = df_phenos.reindex(sorted(df_phenos.columns), axis=1)
-
-    # ------------------------------------------------------------------
-    # 5. Prepare model inputs
-    # ------------------------------------------------------------------
-    # Input for Trees (Raw + Hard ID)
-    X_hard = pd.DataFrame(X_imputed, columns=pkg["features"])
-    X_hard["phenotype_id"] = assigned_phenos
-
-    # Input for SVC (Raw + Soft Probs)
-    X_soft = pd.concat(
-        [pd.DataFrame(X_imputed, columns=pkg["features"]), df_phenos],
-        axis=1
-    )
-
-    # Align SVC features exactly (Critical for Sklearn)
-    if hasattr(pkg["svc_model"], "feature_names_in_"):
-        # This fills missing phenotype columns with 0.0 if the test set didn't hit them
-        X_soft = X_soft.reindex(
-            columns=pkg["svc_model"].feature_names_in_,
-            fill_value=0.0
-        )
-
-    # ------------------------------------------------------------------
-    # 6. Ensemble prediction
-    # ------------------------------------------------------------------
-    print("\n[PREDICTING] Running Ensemble Vote...")
-
-    # LightGBM Prediction
-    p1 = pkg["lgbm_model"].predict_proba(X_hard)[:, 1]
     
-    # XGBoost Prediction
-    p2 = pkg["xgb_model"].predict_proba(X_hard)[:, 1]
+    # Ensure float
+    data = data.astype(float)
     
-    # SVC Prediction
-    p3 = pkg["svc_model"].predict_proba(X_soft)[:, 1]
-
-    # Weighted Average
-    w = pkg["weights"]
-    p_final = (w[0] * p1 + w[1] * p2 + w[2] * p3) / sum(w)
-
-    # ------------------------------------------------------------------
-    # 7. Report
-    # ------------------------------------------------------------------
-    print("\n" + "=" * 80)
-    print(f"{'Patient':<10} | {'Phenotype':<28} | {'Risk Score':<12} | Outlook")
-    print("-" * 80)
-
-    clinical_map = {
-        12: "Respiratory Failure (High)",
-        13: "Sepsis / Renal Failure",
-        27: "Frailty / Cardiac",
-        1:  "Standard Recovery"
-    }
-
-    for i, score in enumerate(p_final):
-        pid = assigned_phenos[i]
-        label = clinical_map.get(pid, f"Phenotype {pid}")
+    # A. Preprocessing Pipeline
+    # 1. Log Transform
+    skewed_feats = ['avg_lactate', 'avg_crp', 'first_creatinine']
+    for col in skewed_feats:
+        if col in data.columns:
+            data.loc[:, col] = np.log1p(data[col])
+            
+    # 2. Scale
+    if 'scaler' in pkg:
+        X_scaled_array = pkg['scaler'].transform(data)
+        X_scaled = pd.DataFrame(X_scaled_array, columns=data.columns)
+    else:
+        print("[WARNING] Scaler missing from package! Using raw data.")
+        X_scaled = data
         
-        # Determine Status
-        if score > 0.7:
-            status = "🔴 CRITICAL"
-        elif score > 0.3:
-            status = "🟡 GUARDED"
-        else:
-            status = "🟢 STABLE"
+    # 3. Impute
+    X_imputed = pkg['imputer'].transform(X_scaled)
+    
+    # B. UMAP "GPS" Location
+    X_umap = pkg['umap_reducer'].transform(X_imputed)
+    
+    # C. Phenotype Assignment (Distance to Centroids)
+    # Find closest centroid in UMAP space
+    centroids = pkg['umap_centroids'].values
+    centroid_labels = pkg['umap_centroids'].index.values
+    
+    assigned_phenos = []
+    soft_probs = [] 
+    
+    from sklearn.metrics.pairwise import euclidean_distances
+    dists = euclidean_distances(X_umap, centroids)
+    
+    for i in range(len(data)):
+        # Hard Assignment
+        closest_idx = np.argmin(dists[i])
+        assigned_phenos.append(centroid_labels[closest_idx])
+        
+        # Soft Assignment (1 / (1+d)) normalized
+        weights = 1 / (1 + dists[i])
+        probs = weights / np.sum(weights)
+        
+        # Construct soft probability dictionary
+        p_dict = {f'prob_pheno_{label}': probs[idx] for idx, label in enumerate(centroid_labels)}
+        soft_probs.append(p_dict)
+        
+    df_phenos = pd.DataFrame(soft_probs)
+    
+    # FIX: Robustly remove noise column (-1) which wasn't in training
+    cols_to_drop = [c for c in df_phenos.columns if str(c).endswith('_-1') or str(c).endswith('_-1.0')]
+    if cols_to_drop:
+        df_phenos = df_phenos.drop(columns=cols_to_drop)
 
-        print(f"{i:<10} | {label:<28} | {score:>10.1%} | {status}")
+    df_phenos = df_phenos.reindex(sorted(df_phenos.columns), axis=1) # Sort cols
+    
+    # D. Prepare Model Inputs
+    # Trees need: Raw + PhenotypeID
+    X_hard = pd.DataFrame(X_imputed, columns=pkg['features'])
+    X_hard['phenotype_id'] = assigned_phenos
+    
+    # SVC needs: Raw + SoftProbs
+    X_soft = pd.concat([pd.DataFrame(X_imputed, columns=pkg['features']), df_phenos], axis=1)
+    
+    # 4. Predict
+    print("\n[PREDICTING] Running Ensemble Vote...")
+    p1 = pkg['lgbm_model'].predict_proba(X_hard)[:, 1]
+    p2 = pkg['xgb_model'].predict_proba(X_hard)[:, 1]
+    
+    # Ensure columns match for SVC
+    if hasattr(pkg['svc_model'], 'feature_names_in_'):
+         expected_cols = pkg['svc_model'].feature_names_in_
+         X_soft = X_soft.reindex(columns=expected_cols, fill_value=0.0)
 
-    print("=" * 80)
-
+    p3 = pkg['svc_model'].predict_proba(X_soft)[:, 1] 
+    
+    w = pkg['weights']
+    p_final = (w[0]*p1 + w[1]*p2 + w[2]*p3) / sum(w)
+    
+    # 5. Report
+    print("\n" + "="*80)
+    print(f"{'Patient':<10} | {'Phenotype':<20} | {'Risk Score':<12} | {'Outlook'}")
+    print("-" * 80)
+    
+    clinical_map = {
+        12: "Respiratory Failure (High Risk)",
+        13: "Sepsis/Renal (High Risk)",
+        27: "Frailty/Cardiac (High Risk)",
+        1:  "Standard Recovery (Low Risk)"
+    }
+    
+    for i in range(len(p_final)):
+        pid = assigned_phenos[i]
+        desc = clinical_map.get(pid, f"Phenotype {pid}")
+        score = p_final[i]
+        status = "CRITICAL" if score > 0.5 else "STABLE"
+        
+        print(f"{i:<10} | {desc:<20} | {score:>10.1%} | {status}")
+        
+    print("="*80)
+    return p_final
 
 if __name__ == "__main__":
-    predict_demo_patients()
+    parser = argparse.ArgumentParser(description="Run SOTA ICU Inference")
+    # UPDATED DEFAULT: Points to 'Agent A/demo/dummy.csv'
+    parser.add_argument("--input", type=str, default="dummy.csv", help="Path to input CSV file")
+    args = parser.parse_args()
+    
+    predict_new_patients(args.input)
